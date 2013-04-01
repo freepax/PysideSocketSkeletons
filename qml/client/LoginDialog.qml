@@ -1,6 +1,8 @@
 import QtQuick 1.0
 
+/// Need the TextLabel, LineEdit and PushButton
 import "../lib"
+
 
 Rectangle {
     id: window
@@ -14,10 +16,12 @@ Rectangle {
         model.connectSignal(hostEdit.inputText, portEdit.inputText)
     }
 
+    /// Grid element with
     function gridElementWidth() {
         return (grid.width / grid.columns) - grid.spacing
     }
 
+    /// Grid element height
     function gridElementHeight() {
         return 35
     }
@@ -36,9 +40,8 @@ Rectangle {
             Component.onCompleted: { textColor = "black"; inputText = model.hostName(); set_focus() }
             width: gridElementWidth(); height: gridElementHeight(); radius: 8
             border.color: "green"; border.width: 2
-            onSendMessage: connect_to_server()
-
             KeyNavigation.tab: portEdit.focusItem
+            onSendMessage: connect_to_server()
         }
 
         /// Port number text label
@@ -50,9 +53,8 @@ Rectangle {
             Component.onCompleted: { textColor = "black"; inputText = model.portNumber(); set_focus() }
             width: gridElementWidth(); height: gridElementHeight(); radius: 8
             border.color: "green"; border.width: 2
-            onSendMessage: connect_to_server()
-
             KeyNavigation.tab: connectButton.focusItem
+            onSendMessage: connect_to_server()
         }
 
         /// Spacers (tow columns)
@@ -67,8 +69,8 @@ Rectangle {
             autoGradient: false; gradient: cg.off
             onDown: gradient = cg.onn
             onUp:  gradient = cg.off
-            onTrigger: model.cancelSignal()
             KeyNavigation.tab: hostEdit.focusItem
+            onTrigger: model.cancelSignal()
         }
 
         /// Connect button
@@ -79,9 +81,9 @@ Rectangle {
             autoGradient: false; gradient: cg.rad
             onDown: gradient = cg.onn
             onUp:  gradient = cg.rad
+            KeyNavigation.tab: quitButton.focusItem
             onTrigger: connect_to_server()
             //onKeyPressed: console.log("Connect button hit", key)
-            KeyNavigation.tab: quitButton.focusItem
         }
     }
 }

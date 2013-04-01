@@ -1,6 +1,8 @@
 import QtQuick 1.0
 
+/// Need the LineEdit and PushButton
 import "../lib"
+
 
 Rectangle {
     id: background;
@@ -16,7 +18,7 @@ Rectangle {
         anchors.fill: parent
 
         Rectangle {
-            height: background.height - (2 * rowHeight); width: textEdit.width //width: model.width()
+            height: background.height - (2 * rowHeight); width: textEdit.width
             color: "black"
 
             Flickable {
@@ -27,6 +29,7 @@ Rectangle {
                 flickableDirection: Flickable.VerticalFlick
                 clip: true
 
+                /// set contentY correct when the text edit is updated with new stuff
                 onContentHeightChanged: contentY = textEdit.paintedHeight - parent.height + textEdit.font.pixelSize + 10
 
                 TextEdit {
@@ -48,9 +51,8 @@ Rectangle {
                 focus: true
                 Component.onCompleted: { textColor = "red"; clearTextOnAccepted = true; set_focus() }
                 width: background.width - sendButtonWidth - row.spacing; height: rowHeight - row.spacing
-                onSendMessage: model.sendMessageSignal(message)
                 KeyNavigation.tab: sendButton.focusItem
-
+                onSendMessage: model.sendMessageSignal(message)
             }
 
             /// The send button
@@ -64,8 +66,6 @@ Rectangle {
                 KeyNavigation.tab: disconnectButton.focusItem
                 onTrigger: { model.sendMessageSignal(sendText.inputText); sendText.inputText = "" }
             }
-
-            //Component.onCompleted: { sendText.forceActiveFocus(); sendText.focus = true }
         }
 
         PushButton {
@@ -80,24 +80,3 @@ Rectangle {
         }
     }
 }
-
-//Rectangle {
-//    id: inputRectangle
-//    border.color: "red"; border.width: 1
-//    height: rowHeight;
-//    width: background.width - sendButtonWidth;
-//    radius: 4; color: "steelblue"
-
-//    TextInput {
-//        id: textInput; color: "red"
-//        horizontalAlignment: TextInput.AlignLeft
-        //height: parent.height - 2;
-        //width: parent.width - 10
-        //anchors.centerIn: parent
-//        anchors.fill: parent
-        //anchors.top: inputRectangle.top; anchors.bottom: inputRectangle.bottom
-        //anchors.left: inputRectangle.left; anchors.right: inputRectangle.right
-//        text: "Hi"
-//        onAccepted: { model.sendMessageSignal(text) }
-//    }
-//}
