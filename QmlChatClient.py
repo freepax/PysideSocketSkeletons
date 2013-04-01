@@ -109,16 +109,16 @@ class Application(QtGui.QDialog):
         super(Application, self).__init__(parent)
 
         ## Set values for the store/restore settings system
-        QtCore.QCoreApplication.setOrganizationName("EMRutger")
-        QtCore.QCoreApplication.setOrganizationDomain("rutger.no")
-        QtCore.QCoreApplication.setApplicationName("ChatClient")
+        QtCore.QCoreApplication.setOrganizationName("EMR")
+        QtCore.QCoreApplication.setOrganizationDomain("code.rutger.no")
+        QtCore.QCoreApplication.setApplicationName("QmlChatClient")
 
         ## create settings
         self.__settings = QtCore.QSettings()
-        hostname = self.__settings.value("ChatClient/hostname")
+        hostname = self.__settings.value("QmlChatClient/hostname")
         if hostname != None:
             self.__hostname = hostname
-        portnumber = self.__settings.value("ChatClient/portnumber")
+        portnumber = self.__settings.value("QmlChatClient/portnumber")
         if portnumber != None:
             self.__portnumber = portnumber
 

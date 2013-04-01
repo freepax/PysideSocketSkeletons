@@ -28,7 +28,7 @@ Rectangle {
         anchors.fill: parent
 
         /// Hostname text label
-        TextLine { height: gridElementHeight(); width: gridElementWidth(); text: "Host"; textColor: "yellow"; borderColor: "white"; borderWidth: 2 }
+        TextLabel { height: gridElementHeight(); width: gridElementWidth(); text: "Host"; textColor: "yellow"; borderColor: "white"; borderWidth: 2 }
 
         /// Hostname line edit
         LineEdit {
@@ -42,7 +42,7 @@ Rectangle {
         }
 
         /// Port number text label
-        TextLine { height: gridElementHeight(); width: gridElementWidth(); text: "Port"; textColor: "white"; borderColor: "purple"; borderWidth: 2 }
+        TextLabel { height: gridElementHeight(); width: gridElementWidth(); text: "Port"; textColor: "white"; borderColor: "purple"; borderWidth: 2 }
 
         /// Port number line edit
         LineEdit {
