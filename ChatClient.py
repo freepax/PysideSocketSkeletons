@@ -4,10 +4,12 @@
 import os
 from PySide import QtGui, QtCore, QtNetwork
 
+from xmlhander import *
+
 
 ## Defaults
-DefaultHost = "localhost"
-DefaultPort = 54321
+DefaultHost = str('localhost')
+DefaultPort = int(54321)
 
 
 ## The login widget
@@ -18,10 +20,17 @@ class LoginWidget(QtGui.QWidget):
 	def __init__(self, parent = None):
 		super(LoginWidget, self).__init__(parent)
 
-		##  Setup the GUI
-		self.__initUI()
+		## User name
+		userLabel = QtGui.QLabel('User name', self)
+		self.__userEdit = QtGui.QLineEdit(self)
+		self.__userEdit.setText('')
 
-	def __initUI(self):
+		## Password
+		passwordLabel = QtGui.QLabel('Password', self)
+		self.__passwordEdit = QtGui.QLineEdit(self)
+		self.__passwordEdit.setEchoMode(QtGui.QLineEdit.Password)
+		self.__passwordEdit.setText('')		
+
 		## Host name label and line edit
 		hostLabel = QtGui.QLabel('IP address:', self)
 		self.__hostEdit = QtGui.QLineEdit(self)
@@ -66,13 +75,17 @@ class LoginWidget(QtGui.QWidget):
 
 		## The layout
 		grid = QtGui.QGridLayout()
-		grid.addWidget(hostLabel,         0, 0, 1, 1)
-		grid.addWidget(self.__hostEdit,   0, 1, 1, 1)
-		grid.addWidget(portLabel,         1, 0, 1, 1)
-		grid.addWidget(self.__portSpin,   1, 1, 1, 1)
-		grid.addWidget (self.__fileGroup, 2, 0, 1, 2)
-		grid.setRowStretch(3, 2)
-		grid.addLayout(hbox,              5, 0, 1, 2)
+		grid.addWidget(userLabel,           0, 0, 1, 1)
+		grid.addWidget(self.__userEdit,     0, 1, 1, 1)
+		grid.addWidget(passwordLabel,       1, 0, 1, 1)
+		grid.addWidget(self.__passwordEdit, 1, 1, 1, 1)
+		grid.addWidget(hostLabel,           2, 0, 1, 1)
+		grid.addWidget(self.__hostEdit,     2, 1, 1, 1)
+		grid.addWidget(portLabel,           3, 0, 1, 1)
+		grid.addWidget(self.__portSpin,     3, 1, 1, 1)
+		grid.addWidget (self.__fileGroup,   4, 0, 1, 2)
+		grid.setRowStretch(5, 2)
+		grid.addLayout(hbox,                6, 0, 1, 2)
 
 		## Set grid as layout
 		self.setLayout(grid)
@@ -85,6 +98,18 @@ class LoginWidget(QtGui.QWidget):
 	def __connectHost(self):
 		## Emit the openConnection signal
 		self.openConnection.emit()
+
+
+	def setUserName(self, user):
+		self.__userEdit.setText(user)
+
+
+	def userName(self):
+		return self.__userEdit.text()
+
+
+	def password(self):
+		return self.__passwordEdit.text()
 
 
 	## Set host name on line edit
@@ -219,17 +244,18 @@ class MainWidget(QtGui.QMainWindow):
 	def __init__(self):
 		super(MainWidget, self).__init__()
 
+		self.connectStatus = False
+
+		self.handler = DocumentXmlHandler()
+
 		## Set values for the store/restore settings system
 		QtCore.QCoreApplication.setOrganizationName("EMRutger")
 		QtCore.QCoreApplication.setOrganizationDomain("rutger.no")
 		QtCore.QCoreApplication.setApplicationName("ChatClient")
 
 		## create settings
-		self.__settings = QtCore.QSettings()
+		settings = QtCore.QSettings()
 
-		self.__initUI()
-
-	def __initUI(self):
 		## Create the connect action
 		self.__connectAction = QtGui.QAction('&Connect', self)
 		self.__connectAction.setShortcut('Ctrl+C')
@@ -258,15 +284,17 @@ class MainWidget(QtGui.QMainWindow):
 		self.__loginWidget = LoginWidget(self)
 		self.__loginWidget.openConnection.connect(self.__connectAction.triggered)
 
-		## read host name from settings
-		hostName = self.__settings.value("chatClient/hostname")
-		if hostName != None:
-			self.__loginWidget.setHostName(str(hostName))
+		## Set username
+		if settings.value("chatClient/username") != None:
+			self.__loginWidget.setUserName(settings.value("chatClient/username"))
+
+		## set host name
+		if settings.value("chatClient/hostname") != None:
+			self.__loginWidget.setHostName(settings.value("chatClient/hostname"))
 
 		## read port number from settings
-		portNumber = self.__settings.value("chatClient/portnumber")
-		if portNumber != None:
-			self.__loginWidget.setPortNumber(int(portNumber))
+		if settings.value("chatClient/portnumber") != None:
+			self.__loginWidget.setPortNumber(int(settings.value("chatClient/portnumber")))
 			
 		## create the connected widget - connect it to the disconnectFromHost slot
 		self.__connectedWidget = ConnectedWidget(self)
@@ -333,24 +361,12 @@ class MainWidget(QtGui.QMainWindow):
 
 
 	def __socketConnected(self):
-		## successfully logged in, write hostname and port number to settings
-		self.__settings.setValue("chatClient/hostname", self.__loginWidget.hostName())
-		self.__settings.setValue("chatClient/portnumber", self.__loginWidget.portNumber())
+		settings = QtCore.QSettings()		
+		settings.setValue("chatClient/hostname", self.__loginWidget.hostName())
+		settings.setValue("chatClient/portnumber", self.__loginWidget.portNumber())
 
-		## The connect action: disconnect it from connetToSystem, change text and connect it to disconnectFromHost
-		self.__connectAction.triggered.disconnect(self.__connectToSystem)
-		self.__connectAction.setText('Dis&connect')
-		self.__connectAction.triggered.connect(self.__disconnectFromHost)
-
-		## Reset seconds and messages
-		self.__seconds = 0
-		self.__messages = 0
-
-		## Start timer that displays seconds and number of messages
-		self.__timer.start(1000)
-
-		## Set connected widget as current widget
-		self.__stackedWidget.setCurrentWidget(self.__connectedWidget)
+		message = str('<chat><content user=\"%s\" type=\"login\"></content><message message=\"%s\"></message></chat>' % (self.__loginWidget.userName(), self.__loginWidget.password()))
+		self.__socket.write(message)
 
 
 	def __disconnectFromHost(self):
@@ -372,14 +388,19 @@ class MainWidget(QtGui.QMainWindow):
 		self.__connectedWidget.clearTextEdit()
 
 		## Reconnect signals and reset text on action to 'Connected'
-		self.__connectAction.triggered.disconnect(self.__disconnectFromHost)
-		self.__connectAction.setText('&Connect')
-		self.__connectAction.triggered.connect(self.__connectToSystem)
+		if self.connectStatus == True:
+			self.__connectAction.triggered.disconnect(self.__disconnectFromHost)
+			self.__connectAction.setText('&Connect')
+			self.__connectAction.triggered.connect(self.__connectToSystem)
+
+		## set connect status to false
+		self.connectStatus = False
 
 
 	## Send the message
 	def __sendMessage(self, text):
-		self.__socket.write(str(text))
+		message = str('<chat><content user=\"%s\" type=\"message\"></content><message message=\"%s\"></message></chat>' % (self.__loginWidget.userName(), text))
+		self.__socket.write(message)
 
 
 	## Data is ready for reading
@@ -391,13 +412,73 @@ class MainWidget(QtGui.QMainWindow):
 
 		## Read data
 		data = str(self.__socket.read(size))
-		self.__connectedWidget.appendTextEdit(data)
 
-		## Emit the write message signal
-		self.__writeMessageSignal.emit(data)
+                ## Initialize xml reader
+		reader = QtXml.QXmlSimpleReader()
+		reader.setContentHandler(self.handler)
+		reader.setErrorHandler(self.handler)
 
-		## Count the message
-		self.__messages += 1
+                ## xml input source
+		xmlInputSource = QtXml.QXmlInputSource()
+		xmlInputSource.setData(data)
+
+		print 'DEBUG DATA', xmlInputSource.data()
+
+                ## Parse xml file
+		if reader.parse(xmlInputSource) == False:
+			print "Pars xml error:", self.handler.errorString()
+			return False
+
+
+		#print 'DEBUG message', self.handler.type, self.handler.message, self.handler.password
+		if self.handler.type == 'login' and self.handler.password == 'failure':
+			print 'Login failed'
+			return
+
+		if self.handler.type == 'login' and self.handler.password == 'success':
+			self.connectStatus = True
+
+		        ## successfully logged in, write username to settings
+			settings = QtCore.QSettings()
+			settings.setValue("chatClient/username", self.__loginWidget.userName())
+
+		        ## The connect action: disconnect it from connetToSystem, change text and connect it to disconnectFromHost
+			self.__connectAction.triggered.disconnect(self.__connectToSystem)
+			self.__connectAction.setText('Dis&connect')
+			self.__connectAction.triggered.connect(self.__disconnectFromHost)
+
+		        ## Reset seconds and messages
+			self.__seconds = 0
+			self.__messages = 0
+
+		        ## Start timer that displays seconds and number of messages
+			self.__timer.start(1000)
+
+		        ## Set connected widget as current widget
+			self.__stackedWidget.setCurrentWidget(self.__connectedWidget)
+
+                        ## login done, return here now
+			return
+
+		elif self.handler.type == 'message':
+                        ## skip empty strings
+			if self.handler.message == "" or self.handler.message == '\n' or self.handler.message == '\l\c':
+				print 'readyRead: Empty string'
+				return
+
+			if self.handler.user == self.__loginWidget.userName():
+				data = str("%s: %s" % ("me", self.handler.message))
+			else:
+				data = str("%s: %s" % (self.handler.user, self.handler.message))
+
+
+			self.__connectedWidget.appendTextEdit(data)
+
+		        ## Emit the write message signal
+			self.__writeMessageSignal.emit(data)
+
+		        ## Count the message
+			self.__messages += 1
 
 
 	def __writeMessage(self, data):

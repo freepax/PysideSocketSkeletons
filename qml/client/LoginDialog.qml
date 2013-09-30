@@ -28,8 +28,34 @@ Rectangle {
 
     Grid {
         id: grid
-        columns: 2; rows: 4; spacing: 2
+        columns: 2; rows: 8; spacing: 2
         anchors.fill: parent
+
+        /// User name text label
+        TextLabel { height: gridElementHeight(); width: gridElementWidth(); text: "User"; textColor: "yellow"; borderColor: "white"; borderWidth: 2 }
+
+        /// Port number line edit
+        LineEdit {
+            id: userEdit
+            Component.onCompleted: { textColor = "black"; inputText = model.userName(); set_focus() }
+            width: gridElementWidth(); height: gridElementHeight(); radius: 8
+            border.color: "green"; border.width: 2
+            KeyNavigation.tab: portEdit.focusItem
+            onSendMessage: connect_to_server()
+        }
+
+        /// Password text label
+        TextLabel { height: gridElementHeight(); width: gridElementWidth(); text: "Password"; textColor: "yellow"; borderColor: "white"; borderWidth: 2 }
+
+        /// Password line edit
+        LineEdit {
+            id: passwordEdit
+            Component.onCompleted: { textColor = "black"; inputText = model.passWord(); set_focus() }
+            width: gridElementWidth(); height: gridElementHeight(); radius: 8
+            border.color: "green"; border.width: 2
+            KeyNavigation.tab: portEdit.focusItem
+            onSendMessage: connect_to_server()
+        }
 
         /// Hostname text label
         TextLabel { height: gridElementHeight(); width: gridElementWidth(); text: "Host"; textColor: "yellow"; borderColor: "white"; borderWidth: 2 }
@@ -57,9 +83,9 @@ Rectangle {
             onSendMessage: connect_to_server()
         }
 
-        /// Spacers (tow columns)
-        Rectangle { color: "black"; height: grid.height - (3 * gridElementHeight()) - (grid.spacing * grid.rows); width: (grid.width / grid.columns) }
-        Rectangle { color: "black"; height: grid.height - (3 * gridElementHeight()) - (grid.spacing * grid.rows); width: (grid.width / grid.columns) }
+        /// Spacers (one column)
+        //Rectangle { color: "black"; height: grid.height - (3 * gridElementHeight()) - (grid.spacing * grid.rows); width: (grid.width / grid.columns) }
+        //Rectangle { color: "black"; height: grid.height - (gridElementHeight()) - (grid.spacing * grid.rows); width: (grid.width / grid.columns) }
 
         /// Quit button
         PushButton {
