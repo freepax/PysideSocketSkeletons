@@ -6,6 +6,9 @@ from PySide.QtDeclarative import QDeclarativeView
 
 from PySide import QtGui, QtCore, QtNetwork
 
+from xmlhander import *
+
+#SendMessageFormatedString = str("<chat><content type=\"%s\" message=\"%s\" /></char>")
 
 class UsernamePasswordModel(QtCore.QObject):
     __host = ""
@@ -105,8 +108,12 @@ class Application(QtGui.QDialog):
 
     __messages = int(0)
 
+    __user = str("espen")
+
     def __init__(self, parent = None):
         super(Application, self).__init__(parent)
+
+        self.handler = DocumentXmlHandler()
 
         ## Set values for the store/restore settings system
         QtCore.QCoreApplication.setOrganizationName("EMR")
@@ -134,7 +141,7 @@ class Application(QtGui.QDialog):
         userpassModel.setPort(int(self.__portnumber))
 
         userpassModel.connectSignal.connect(self.__connectToSystem)
-        userpassModel.cancelSignal.connect(self.cancelSlot)
+        userpassModel.cancelSignal.connect(self.quitSlot)
 
         self.loginView = QDeclarativeView()
         self.loginView.rootContext().setContextProperty("model", userpassModel)
@@ -158,7 +165,7 @@ class Application(QtGui.QDialog):
         self.stackedWidget.addWidget(self.loggedInView)
         self.stackedWidget.setCurrentWidget(self.loginView)
 
-        self.stackedWidget.setWindowTitle('Window title')
+        self.stackedWidget.setWindowTitle('Qml Chat Client')
         self.stackedWidget.setGeometry(300, 300, self.__width, self.__height)
         self.stackedWidget.show()
 
@@ -178,8 +185,8 @@ class Application(QtGui.QDialog):
             ## remove file created above
             #os.unlink(self.__loginWidget.logfileName())
 
-    def cancelSlot(self):
-        print "cancelSlot"
+    def quitSlot(self):
+        print "quitSlot"
         exit()
 
 
@@ -216,10 +223,12 @@ class Application(QtGui.QDialog):
         ## Clear dialog text
         self.loggedInModel.clear()
 
+
     ## Send the message
     def __sendMessage(self, text):
-        print "__sendMessage", text
-        self.__socket.write(str(text))
+        print "sendMessage", text
+        message = str('<chat><content user=\"%s\" type=\"message\"></content><message message=\"%s\"></message></chat>' % (self.__user, text))
+        self.__socket.write(message)
 
 
     ## Data is ready for reading
@@ -231,7 +240,32 @@ class Application(QtGui.QDialog):
 
        	## Read data
         data = str(self.__socket.read(size))
-        #self.__connectedWidget.appendTextEdit(data)
+
+        ## Initialize xml reader
+        reader = QtXml.QXmlSimpleReader()
+        reader.setContentHandler(self.handler)
+        reader.setErrorHandler(self.handler)
+
+        ## xml input source
+        xmlInputSource = QtXml.QXmlInputSource()
+        xmlInputSource.setData(data)
+
+        print 'DEBUG DATA', xmlInputSource.data()
+
+        ## Parse xml file
+        if reader.parse(xmlInputSource) == False:
+            print "Pars xml error:", self.handler.errorString()
+            return False
+
+        ## skip empty strings
+        if self.handler.message == "" or self.handler.message == '\n' or self.handler.message == '\l\c':
+            print 'Empty string'
+            return
+
+        if self.handler.user == self.__user:
+            data = str("%s: %s" % ("me", self.handler.message))
+        else:
+            data = str("%s: %s" % (self.handler.user, self.handler.message))
 
         #print "__readyRead:", data
         self.loggedInModel.setText(str(data))
