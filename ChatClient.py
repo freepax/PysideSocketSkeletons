@@ -12,6 +12,7 @@ DefaultHost = str('localhost')
 DefaultPort = int(54321)
 
 
+
 ## The login widget
 class LoginWidget(QtGui.QWidget):
 	## Public signal
@@ -159,10 +160,6 @@ class ConnectedWidget(QtGui.QWidget):
 	def __init__(self, parent = None):
 		super(ConnectedWidget, self).__init__(parent)
 
-		self.__initUI()
-
-
-	def __initUI(self):
 		## Create the text edit - this is where all chat messages will go
 		self.__textEdit = QtGui.QTextEdit()
 		self.__textEdit.setReadOnly(True)
@@ -229,8 +226,6 @@ class ConnectedWidget(QtGui.QWidget):
 
 ## The main window
 class MainWidget(QtGui.QMainWindow):
-	## Internal write message (logfile) signal
-	__writeMessageSignal = QtCore.Signal(str)
 
 	## messages count the totlal number of messages
 	__messages = 0
@@ -246,7 +241,7 @@ class MainWidget(QtGui.QMainWindow):
 
 		self.connectStatus = False
 
-		self.handler = DocumentXmlHandler()
+		self.handler = ServerXmlHandler()
 
 		## Set values for the store/restore settings system
 		QtCore.QCoreApplication.setOrganizationName("EMRutger")
@@ -257,9 +252,9 @@ class MainWidget(QtGui.QMainWindow):
 		settings = QtCore.QSettings()
 
 		## Create the connect action
-		self.__connectAction = QtGui.QAction('&Connect', self)
-		self.__connectAction.setShortcut('Ctrl+C')
-		self.__connectAction.triggered.connect(self.__connectToSystem)
+		self.connectAction = QtGui.QAction('&Connect', self)
+		self.connectAction.setShortcut('Ctrl+C')
+		self.connectAction.triggered.connect(self.__connectToSystem)
 
 		## Create he quit action
 		quitAction = QtGui.QAction('&Quit', self)
@@ -269,9 +264,22 @@ class MainWidget(QtGui.QMainWindow):
 		## create the menu bar, the file menu and add the actions
 		menuBar = self.menuBar()
 		fileMenu = menuBar.addMenu('&File')
-		fileMenu.addAction(self.__connectAction)
+		fileMenu.addAction(self.connectAction)
 		fileMenu.addSeparator()
 		fileMenu.addAction(quitAction)
+
+
+		self.requestUserListAction = QtGui.QAction('Request logged in users', self)
+		self.requestUserListAction.setEnabled(False)
+		self.requestUserListAction.triggered.connect(self.requestUserList)
+
+		self.requestAllUsersListAction = QtGui.QAction('Request all users', self)
+		self.requestAllUsersListAction.setEnabled(False)
+		self.requestAllUsersListAction.triggered.connect(self.sendAllUsersList)
+
+		systemMenu = menuBar.addMenu('S&ystem')
+		systemMenu.addAction(self.requestUserListAction)
+		systemMenu.addAction(self.requestAllUsersListAction)
 
 		## Connect the socket's signals to our slots
 		self.__socket.connected.connect(self.__socketConnected)
@@ -282,7 +290,7 @@ class MainWidget(QtGui.QMainWindow):
 
 		## create the login widget - connect it to the connectToSystem slot
 		self.__loginWidget = LoginWidget(self)
-		self.__loginWidget.openConnection.connect(self.__connectAction.triggered)
+		self.__loginWidget.openConnection.connect(self.connectAction.triggered)
 
 		## Set username
 		if settings.value("chatClient/username") != None:
@@ -298,7 +306,7 @@ class MainWidget(QtGui.QMainWindow):
 			
 		## create the connected widget - connect it to the disconnectFromHost slot
 		self.__connectedWidget = ConnectedWidget(self)
-		self.__connectedWidget.closeConnection.connect(self.__connectAction.triggered)
+		self.__connectedWidget.closeConnection.connect(self.connectAction.triggered)
 		self.__connectedWidget.sendMessage.connect(self.__sendMessage)
 
 		## create the stacked widget and populate it with the login and disconnect widgets
@@ -312,9 +320,6 @@ class MainWidget(QtGui.QMainWindow):
 		## the timer - updates the status bar with connections status (secs and messages)
 		self.__timer = QtCore.QTimer()
 		self.__timer.timeout.connect(self.__timeout)
-
-		## Connect the write message signal
-		self.__writeMessageSignal.connect(self.__writeMessage)
 
 		## display 'Disconnected' on the status bar
 		self.statusBar().showMessage('Disconnected')
@@ -389,17 +394,42 @@ class MainWidget(QtGui.QMainWindow):
 
 		## Reconnect signals and reset text on action to 'Connected'
 		if self.connectStatus == True:
-			self.__connectAction.triggered.disconnect(self.__disconnectFromHost)
-			self.__connectAction.setText('&Connect')
-			self.__connectAction.triggered.connect(self.__connectToSystem)
+			self.connectAction.triggered.disconnect(self.__disconnectFromHost)
+			self.connectAction.setText('&Connect')
+			self.connectAction.triggered.connect(self.__connectToSystem)
 
 		## set connect status to false
 		self.connectStatus = False
 
+		self.requestUserListAction.setEnabled(False)
+		self.requestAllUsersListAction.setEnabled(False)
+
 
 	## Send the message
 	def __sendMessage(self, text):
-		message = str('<chat><content user=\"%s\" type=\"message\"></content><message message=\"%s\"></message></chat>' % (self.__loginWidget.userName(), text))
+		text = text.replace('&', '&amp;')
+		text = text.replace('<', '&lt;')
+		text = text.replace('>', '&gt;')
+
+		#text = QtCore.QByteArray(text)
+		codec = QtCore.QTextCodec.codecForName("iso-8859-1")
+		#text = codec.toUnicode(text)
+		print text
+
+		message = str('%s<chat><content user=\"%s\" type=\"message\"></content><message message=\"%s\"></message></chat>' % (xml_header, self.__loginWidget.userName(), text))
+
+		self.__socket.write(message)
+
+	def requestUserList(self):
+		self.sendSystemMessage('user-list')
+
+	def sendAllUsersList(self):
+		self.sendSystemMessage('all-user-list')
+
+	## Send the message
+	def sendSystemMessage(self, text):
+		message = str('<chat><content user=\"%s\" type=\"request\"></content><message message=\"%s\"></message></chat>' % (self.__loginWidget.userName(), text))
+		print text, message
 		self.__socket.write(message)
 
 
@@ -443,9 +473,9 @@ class MainWidget(QtGui.QMainWindow):
 			settings.setValue("chatClient/username", self.__loginWidget.userName())
 
 		        ## The connect action: disconnect it from connetToSystem, change text and connect it to disconnectFromHost
-			self.__connectAction.triggered.disconnect(self.__connectToSystem)
-			self.__connectAction.setText('Dis&connect')
-			self.__connectAction.triggered.connect(self.__disconnectFromHost)
+			self.connectAction.triggered.disconnect(self.__connectToSystem)
+			self.connectAction.setText('Dis&connect')
+			self.connectAction.triggered.connect(self.__disconnectFromHost)
 
 		        ## Reset seconds and messages
 			self.__seconds = 0
@@ -457,8 +487,12 @@ class MainWidget(QtGui.QMainWindow):
 		        ## Set connected widget as current widget
 			self.__stackedWidget.setCurrentWidget(self.__connectedWidget)
 
+			self.requestUserListAction.setEnabled(True)
+			self.requestAllUsersListAction.setEnabled(True)
+
                         ## login done, return here now
 			return
+
 
 		elif self.handler.type == 'message':
                         ## skip empty strings
@@ -474,12 +508,21 @@ class MainWidget(QtGui.QMainWindow):
 
 			self.__connectedWidget.appendTextEdit(data)
 
-		        ## Emit the write message signal
-			self.__writeMessageSignal.emit(data)
-
 		        ## Count the message
 			self.__messages += 1
 
+		elif self.handler.type == 'user-list' or self.handler.type == 'all-user-list':
+                        ## skip empty strings
+			if self.handler.message == "" or self.handler.message == '\n' or self.handler.message == '\l\c':
+				print 'readyRead: Empty string'
+				return
+
+			if self.handler.type == 'user-list':
+				data = str("%s: %s" % ("Logged in users", self.handler.message))
+			elif self.handler.type == 'all-user-list':
+				data = str("%s: %s" % ("List of all users", self.handler.message))
+
+			self.__connectedWidget.appendTextEdit(data)
 
 	def __writeMessage(self, data):
 		## Write result to file, include a newline and force flush

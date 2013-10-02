@@ -4,47 +4,10 @@ import time
 from PySide import QtCore, QtGui, QtNetwork
 from PySide import QtXml
 from xmlhander import *
+from Client import *
+from UserDialog import *
 
 DefaultPortNumber = int(54321)
-
-
-class Client():
-    def __init__(self, username, password, socket):
-        self.__username = username
-        self.__password = password
-        self.__socket = socket
-
-
-    def username(self):
-        return self.__username
-
-
-    def setUsername(self, name):
-        self.__username = name
-
-
-    def setPassword(self, password):
-        self.__password = password
-
-    #def password(self):
-    #    return self.__password
-
-
-    def close(self):
-        if self.__socket != int(-1):
-            self.__socket.close()
-            self.socket = int(-1)
-
-    def setSocket(self, socket):
-        self.__socket = socket
-
-
-    def socket(self):
-        return self.__socket
-
-
-    def write(self, message):
-        self.__socket.write(message)
 
 
 ## THE LOGIN DIALOG
@@ -74,10 +37,10 @@ class LoginDialog(QtGui.QDialog):
 
         # the main grid layout
         layout = QtGui.QGridLayout()
-        layout.addWidget(portLabel,       0, 0, 1, 1)
+        layout.addWidget(portLabel,     0, 0, 1, 1)
         layout.addWidget(self.portSpin, 0, 1, 1, 1)
         layout.setRowStretch(2, 2)
-        layout.addLayout(buttonBox,       3, 0, 1, 2)
+        layout.addLayout(buttonBox,     3, 0, 1, 2)
         
         # set layout, geometry and window title
         self.setLayout(layout)
@@ -149,10 +112,20 @@ class MainWindow(QtGui.QMainWindow):
         exitAction.setShortcut('Ctrl+Q')
         exitAction.triggered.connect(self.quitServer)
 
+        userAction = QtGui.QAction('&Users', self)
+        userAction.setShortcut('Ctrl+U')
+        userAction.triggered.connect(self.showUsers)
+
+        loggedInAction = QtGui.QAction('&Connected users', self)
+        loggedInAction.setShortcut('Ctrl+L')
+        loggedInAction.triggered.connect(self.loggedInUsers)
+
         # the menubar with menus and actions
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu('&File')
         fileMenu.addAction(self.connectAction)
+        fileMenu.addAction(userAction)
+        fileMenu.addAction(loggedInAction)
         fileMenu.addSeparator()
         fileMenu.addAction(exitAction)
 
@@ -168,6 +141,22 @@ class MainWindow(QtGui.QMainWindow):
         self.setGeometry(300, 300, 250, 280)
         self.setWindowTitle('Chat Server')
         self.show()
+
+
+    def showUsers(self):
+        #dialog = UserDialog(['espen'])
+        l = []
+        for i in self.userNamePassword:
+            c = Client(i, self.userNamePassword[i], 0)
+            l.append(c)
+        dialog = UserDialog(l, 'All users')
+        dialog.exec_()
+
+
+    def loggedInUsers(self):
+        print 'loggedInUsers'
+        dialog = UserDialog(self.client_list, 'Logged in users')
+        dialog.exec_()
 
 
     # handle new incoming connections
@@ -302,7 +291,7 @@ class MainWindow(QtGui.QMainWindow):
 
                 ## Parse xml file
                 if self.reader.parse(self.xmlInputSource) == False:
-                    message = str('XML pars error', self.handler.errorString())
+                    message = str('XML pars error: %s' % self.handler.errorString())
                     self.textEdit.append(message)
                     self.sendClientErrorMessage(client.socket(), message)
                     return False
@@ -320,11 +309,31 @@ class MainWindow(QtGui.QMainWindow):
                         print 'Empty string'
                         return
 
-                    self.sendMessage(self.handler.user, self.handler.message)
+                    text = self.handler.message
+                    text = text.replace('&', '&amp;')
+                    text = text.replace('<', '&lt;')
+                    text = text.replace('>', '&gt;')
+
+                    self.sendMessage(self.handler.user, text)
 
                     text = str("%s: %s" % (self.handler.user, self.handler.message))
                     print text
                     self.textEdit.append(text)
+
+                elif self.handler.type == 'request':                                  ## REQUEST
+                    if self.handler.message == 'user-list':                           ## USER LIST
+                        text = str('')
+                        for c in self.client_list:
+                            text += str('%s ' % c.username())
+
+                        self.sendSystemMessageToClient(client, 'user-list', text)
+
+                    if self.handler.message == 'all-user-list':                       ## ALL USER LIST
+                        text = str('')
+                        for c in self.userNamePassword:
+                            text += str('%s ' % c)
+
+                        self.sendSystemMessageToClient(client, 'all-user-list', text)
 
                 ## handle only one client per signal
                 return
@@ -345,6 +354,11 @@ class MainWindow(QtGui.QMainWindow):
         text = str('<chat><content user=\"server\" type=\"message\"></content><message message=\"%s\"></message></chat>' % (message))
         for client in self.client_list:
             client.write(text)
+
+
+    def sendSystemMessageToClient(self, client, messagetype, message):
+        text = str('<chat><content user=\"server\" type=\"%s\"></content><message message=\"%s\"></message></chat>' % (messagetype, message))
+        client.write(text)
 
 
     # remove the client that closed the connection from the list of connected clients

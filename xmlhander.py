@@ -1,5 +1,7 @@
 from PySide import QtXml
 
+xml_header = str('<?xml version="1.0" encoding="iso-8859-1"?>')
+
 class ServerXmlHandler(QtXml.QXmlDefaultHandler):
     def __init__(self):
         super(ServerXmlHandler, self).__init__()
@@ -46,6 +48,10 @@ class ServerXmlHandler(QtXml.QXmlDefaultHandler):
             elif self.type == 'login':
                 self.password = attributes.value('message')
                 #print 'startElement type login', self.password
+            elif self.type == 'request':
+                self.message = attributes.value('message')
+            elif self.type == 'user-list' or self.type == 'all-user-list':
+                self.message = attributes.value('message')
             elif self.type == 'error':
                 self.message = attributes.value('message')
                 print 'error'
