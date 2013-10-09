@@ -4,6 +4,7 @@ import time
 from PySide import QtCore, QtGui, QtNetwork
 from PySide import QtXml
 from xmlhander import *
+
 from Client import *
 from UserDialog import *
 
@@ -112,22 +113,26 @@ class MainWindow(QtGui.QMainWindow):
         exitAction.setShortcut('Ctrl+Q')
         exitAction.triggered.connect(self.quitServer)
 
-        userAction = QtGui.QAction('&Users', self)
-        userAction.setShortcut('Ctrl+U')
-        userAction.triggered.connect(self.showUsers)
-
-        loggedInAction = QtGui.QAction('&Connected users', self)
-        loggedInAction.setShortcut('Ctrl+L')
-        loggedInAction.triggered.connect(self.loggedInUsers)
-
         # the menubar with menus and actions
         menuBar = self.menuBar()
+
         fileMenu = menuBar.addMenu('&File')
         fileMenu.addAction(self.connectAction)
-        fileMenu.addAction(userAction)
-        fileMenu.addAction(loggedInAction)
         fileMenu.addSeparator()
         fileMenu.addAction(exitAction)
+
+        # list of users
+        userListAction = QtGui.QAction('ALL &Users', self)
+        userListAction.setShortcut('Ctrl+U')
+        userListAction.triggered.connect(self.showUsers)
+
+        onlineAction = QtGui.QAction('Online &users', self)
+        onlineAction.setShortcut('Ctrl+L')
+        onlineAction.triggered.connect(self.loggedInUsers)
+
+        systemMenu = menuBar.addMenu('&System')
+        systemMenu.addAction(userListAction)
+        systemMenu.addAction(onlineAction)
 
         # the text edit (the main widget)
         self.textEdit = QtGui.QTextEdit()
@@ -324,14 +329,14 @@ class MainWindow(QtGui.QMainWindow):
                     if self.handler.message == 'user-list':                           ## USER LIST
                         text = str('')
                         for c in self.client_list:
-                            text += str('%s ' % c.username())
+                            text += str('%s, ' % c.username())
 
                         self.sendSystemMessageToClient(client, 'user-list', text)
 
                     if self.handler.message == 'all-user-list':                       ## ALL USER LIST
                         text = str('')
                         for c in self.userNamePassword:
-                            text += str('%s ' % c)
+                            text += str('%s, ' % c)
 
                         self.sendSystemMessageToClient(client, 'all-user-list', text)
 
