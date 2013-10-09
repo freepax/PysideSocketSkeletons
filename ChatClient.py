@@ -6,6 +6,9 @@ from PySide import QtGui, QtCore, QtNetwork
 
 from xmlhander import *
 
+from Client import *
+from UserDialog import *
+
 
 ## Defaults
 DefaultHost = str('localhost')
@@ -25,12 +28,14 @@ class LoginWidget(QtGui.QWidget):
 		userLabel = QtGui.QLabel('User name', self)
 		self.__userEdit = QtGui.QLineEdit(self)
 		self.__userEdit.setText('')
+		self.__userEdit.returnPressed.connect(self.__connectHost)
 
 		## Password
 		passwordLabel = QtGui.QLabel('Password', self)
 		self.__passwordEdit = QtGui.QLineEdit(self)
 		self.__passwordEdit.setEchoMode(QtGui.QLineEdit.Password)
-		self.__passwordEdit.setText('')		
+		self.__passwordEdit.setText('')
+		self.__passwordEdit.returnPressed.connect(self.__connectHost)
 
 		## Host name label and line edit
 		hostLabel = QtGui.QLabel('IP address:', self)
@@ -268,12 +273,13 @@ class MainWidget(QtGui.QMainWindow):
 		fileMenu.addSeparator()
 		fileMenu.addAction(quitAction)
 
-
-		self.requestUserListAction = QtGui.QAction('Request logged in users', self)
+		self.requestUserListAction = QtGui.QAction('&Online users', self)
+		self.requestUserListAction.setShortcut('Ctrl+L')
 		self.requestUserListAction.setEnabled(False)
 		self.requestUserListAction.triggered.connect(self.requestUserList)
 
-		self.requestAllUsersListAction = QtGui.QAction('Request all users', self)
+		self.requestAllUsersListAction = QtGui.QAction('All &users', self)
+		self.requestAllUsersListAction.setShortcut('Ctrl+U')
 		self.requestAllUsersListAction.setEnabled(False)
 		self.requestAllUsersListAction.triggered.connect(self.sendAllUsersList)
 
@@ -511,18 +517,36 @@ class MainWidget(QtGui.QMainWindow):
 		        ## Count the message
 			self.__messages += 1
 
+
 		elif self.handler.type == 'user-list' or self.handler.type == 'all-user-list':
-                        ## skip empty strings
-			if self.handler.message == "" or self.handler.message == '\n' or self.handler.message == '\l\c':
-				print 'readyRead: Empty string'
+			# strip away spaces and ', ' at the end of the string
+			self.handler.message = self.handler.message.strip()
+			self.handler.message = self.handler.message.strip(', ')
+
+			# create list of space separated string
+			names = self.handler.message.split(', ')
+
+                        ## skip if string is empty
+			if names == []:
 				return
 
-			if self.handler.type == 'user-list':
-				data = str("%s: %s" % ("Logged in users", self.handler.message))
-			elif self.handler.type == 'all-user-list':
-				data = str("%s: %s" % ("List of all users", self.handler.message))
+			# create list of Clients()
+			c = []
+			for i in names:
+				l = Client(i, '', 0)
+				c.append(l)
 
-			self.__connectedWidget.appendTextEdit(data)
+			# make a proper heading for the dialog
+			heading = str('')
+			if self.handler.type == 'user-list':
+				heading = 'Online users'
+			if self.handler.type == 'all-user-list':
+				heading = 'All users'
+			
+			# create dialog and show it
+			dialog = UserDialog(c, heading)
+			dialog.exec_()
+
 
 	def __writeMessage(self, data):
 		## Write result to file, include a newline and force flush
